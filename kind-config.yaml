@@ -1,0 +1,35 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: ingress-lab
+networking:
+  ipFamily: dual
+  podSubnet: 10.244.0.0/16
+  serviceSubnet: 10.96.0.0/16
+nodes:
+  # ---------- 1 x control-plane ----------
+  - role: control-plane
+    image: kindest/node:v1.37.0
+    # kind 只允许在 control-plane 上做 extraPortMappings，
+    # kube-proxy 会在所有节点上开放 NodePort，所以 31000 打到 CP 也会被转发到 infra 上的 ingress pod
+    extraPortMappings:
+      - containerPort: 31000
+        hostPort: 31000
+        protocol: TCP
+      - containerPort: 31001
+        hostPort: 31001
+        protocol: TCP
+
+  # ---------- 2 x infra (承载 ingress-nginx) ----------
+  # 注意: 节点标签不能用 kind 的 labels: 字段（会注入 kubelet --node-labels，
+  # node-role.kubernetes.io/* 不在 kubelet 白名单里会导致 kubelet 起不来）
+  # 统一在 bootstrap.sh 里用 kubectl label / taint 打
+  - role: worker
+    image: kindest/node:v1.37.0
+  - role: worker
+    image: kindest/node:v1.37.0
+
+  # ---------- 2 x worker (业务负载) ----------
+  - role: worker
+    image: kindest/node:v1.37.0
+  - role: worker
+    image: kindest/node:v1.37.0

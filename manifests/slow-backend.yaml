@@ -1,0 +1,113 @@
+# 慢后端：用来制造"真正在飞"的请求（?sleep=1s），这样关掉 infra 节点的那一刻
+# 确实有 N 个请求已经发到 ingress 上、还没拿到响应。
+# 并发能力用 ThreadingHTTPServer（busybox nc -k 是串行的，会失真）。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: slowd
+  namespace: demo
+data:
+  slowd.py: |
+    import os, time
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from urllib.parse import urlparse, parse_qs
+
+    class H(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def handle_any(self, body):
+            q = parse_qs(urlparse(self.path).query)
+            raw = q.get("sleep", ["0"])[0]
+            try:
+                s = float(raw.rstrip("s"))
+            except ValueError:
+                s = 0.0
+            if s:
+                time.sleep(s)
+            out = ("slow-backend host=%s sleep=%s method=%s probe=%s body=%s\n" %
+                   (os.environ["HOSTNAME"], s, self.command,
+                    q.get("probe", [""])[0], body.decode()[:64])).encode()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(out)))
+            self.end_headers()
+            self.wfile.write(out)
+
+        def do_GET(self):
+            self.handle_any(b"")
+
+        def do_POST(self):
+            n = int(self.headers.get("content-length") or 0)
+            self.handle_any(self.rfile.read(n) if n else b"")
+
+        def log_message(self, *a):
+            pass
+
+    ThreadingHTTPServer(("0.0.0.0", 8080), H).serve_forever()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: slow
+  namespace: demo
+spec:
+  replicas: 3
+  selector: { matchLabels: { app: slow } }
+  template:
+    metadata:
+      labels: { app: slow }
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/node: ""      # 和业务负载一样，只在普通 worker 节点
+      containers:
+        - name: slowd
+          image: python:3.12-alpine
+          command: ["python", "/srv/slowd.py"]
+          env:
+            - name: HOSTNAME
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+            - name: SLOW_DEFAULT
+              value: "1"
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - { name: code, mountPath: /srv }
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 128Mi }
+      volumes:
+        - name: code
+          configMap: { name: slowd }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: slow
+  namespace: demo
+spec:
+  selector: { app: slow }
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: slow
+  namespace: demo
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: demo.local
+      http:
+        paths:
+          - path: /slow
+            pathType: Prefix
+            backend:
+              service:
+                name: slow
+                port:
+                  number: 8080

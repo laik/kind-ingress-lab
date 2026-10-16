@@ -1,0 +1,69 @@
+# ingress-nginx: Deployment + infra 定向调度 + Topology Spread + NodePort + externalTrafficPolicy: Local
+controller:
+  kind: Deployment
+
+  # 每个 infra-node 3 个 nginx Pod（当前 2 个 infra-node -> 6 副本）
+  # 3 infra-node -> 9, 4 infra-node -> 12
+  replicaCount: 6
+
+  # ① 只跑 infra-node：用 nodeAffinity 硬约束（不再用 nodeSelector）
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/infra
+                operator: In
+                values:
+                  - "true"
+
+  # ② 均匀铺开：3/3/3 而不是 7/2/0
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: ingress-nginx
+          app.kubernetes.io/component: controller
+
+  # infra-node 有 NoSchedule taint，必须容忍
+  tolerations:
+    - key: node-role.kubernetes.io/infra
+      operator: Exists
+      effect: NoSchedule
+
+  service:
+    type: NodePort
+    # ④ 禁止跨 Node 转发：流量进哪个 infra-node，就只在该节点的 nginx 里选
+    externalTrafficPolicy: Local
+    nodePorts:
+      http: 31000
+      https: 31001
+    # ③b internalTrafficPolicy: Local 也开着，但 chart 4.15.1 没有这个 value，
+    #     由 helm post-renderer 注入：--post-renderer ./scripts/post-render-itp.py
+    #     （集群内从非 infra 节点访问本 Service 的 ClusterIP 会被 DROP）
+    # ⑤ 关于“上游 LB 如何知道这个 Node 上有没有 Local Endpoint”：
+    #    kube-proxy 的 healthCheckNodePort 只对 type: LoadBalancer 开放，
+    #    NodePort 类型下 API 会直接拒绝（may only be set when type is 'LoadBalancer'）。
+    #    所以 NodePort 方案下，LB 必须自己探测 NodePort 本身：
+    #      - 有本地 endpoint → TCP 立刻建立
+    #      - 无本地 endpoint → kube-proxy 丢包，连接超时
+    #    scripts/external-nginx.sh 就是按这个规则动态生成 upstream 的。
+    # healthCheckNodePort: 31010   # 仅当 service.type=LoadBalancer 时可用
+
+  # ③ 节点维护/drain 时不会把一个节点的 nginx 全干掉
+  #    注意: chart 4.15.1 里 PDB 阈值取的是 controller.minAvailable，
+  #    写在 podDisruptionBudget.minAvailable 下会被静默忽略（渲染成默认值 1）
+  podDisruptionBudget:
+    enabled: true
+  minAvailable: 50%
+
+  # 单 Pod 故障时节点仍有 endpoint，配合多副本做优雅退出
+  terminationGracePeriodSeconds: 30
+  metrics:
+    enabled: true
+
+  config:
+    use-forwarded-headers: "true"
+    compute-full-forwarded-for: "true"
