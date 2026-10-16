@@ -1,0 +1,481 @@
+<meta charset="utf-8">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>摘流方案与实验台账</title>
+<style>
+/* 设计计划：仪器/实验记录本的样子。冷灰蓝中性 + 深青作为唯一强调色；
+   语义色只用于「掉 / 长尾 / 不掉」三种状态。字体 IBM Plex Serif(标题) + Sans(正文) + Mono(数据)。 */
+:root{
+  --bg:#F4F6F8; --surface:#FFFFFF; --surface-2:#EDF1F4;
+  --fg:#12171E; --muted:#5C6673; --line:#D8DEE6;
+  --accent:#0E6B68; --accent-soft:#E2F0EF;
+  --ok:#1C7A45; --warn:#9A5B06; --bad:#AF2B20;
+  --serif:"IBM Plex Serif",Georgia,"Songti SC",serif;
+  --sans:"IBM Plex Sans",-apple-system,"PingFang SC","Helvetica Neue",sans-serif;
+  --mono:"IBM Plex Mono","SFMono-Regular",Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1318; --surface:#161B21; --surface-2:#1D242B;
+    --fg:#E4E9EF; --muted:#939EA9; --line:#2B333C;
+    --accent:#4EBDB4; --accent-soft:#173231;
+    --ok:#4FB37A; --warn:#D19A4B; --bad:#E0776C;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1318; --surface:#161B21; --surface-2:#1D242B;
+  --fg:#E4E9EF; --muted:#939EA9; --line:#2B333C;
+  --accent:#4EBDB4; --accent-soft:#173231;
+  --ok:#4FB37A; --warn:#D19A4B; --bad:#E0776C;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:var(--sans); font-size:15px; line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{
+  max-width:1180px; margin:0 auto;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:0 96px;
+}
+/* ---------- header ---------- */
+header.doc{padding-block:56px 30px; border-bottom:1px solid var(--line)}
+.eyebrow{
+  font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--accent); margin:0 0 14px;
+}
+h1{
+  font-family:var(--serif); font-weight:600; font-size:clamp(28px,4.6vw,44px);
+  line-height:1.14; letter-spacing:-.015em; margin:0 0 16px; text-wrap:balance;
+}
+.dek{max-width:64ch; color:var(--muted); font-size:15.5px; margin:0}
+.meta{
+  display:flex; flex-wrap:wrap; gap:8px 22px; margin-top:22px;
+  font-family:var(--mono); font-size:11.5px; color:var(--muted);
+  font-variant-numeric:tabular-nums;
+}
+.meta b{color:var(--fg); font-weight:500}
+/* ---------- layout ---------- */
+.grid{display:grid; grid-template-columns:216px minmax(0,1fr); gap:44px; margin-top:36px}
+nav.toc{position:sticky; top:20px; align-self:start; font-size:13px}
+nav.toc ol{list-style:none; margin:0; padding:0; border-left:1px solid var(--line)}
+nav.toc a{
+  display:block; padding:6px 0 6px 14px; margin-left:-1px;
+  color:var(--muted); text-decoration:none; border-left:2px solid transparent;
+}
+nav.toc a:hover,nav.toc a.on{color:var(--accent); border-left-color:var(--accent)}
+nav.toc .n{font-family:var(--mono); font-size:10.5px; color:var(--muted); margin-right:7px}
+main{min-width:0}
+section{margin-bottom:64px; scroll-margin-top:20px}
+h2{
+  font-family:var(--serif); font-weight:600; font-size:25px; letter-spacing:-.01em;
+  margin:0 0 6px; text-wrap:balance;
+}
+h2 .num{font-family:var(--mono); font-size:13px; color:var(--accent); margin-right:10px; font-weight:400}
+.sub{color:var(--muted); margin:0 0 22px; max-width:66ch; font-size:14px}
+h3{
+  font-size:13px; font-family:var(--mono); letter-spacing:.06em; text-transform:uppercase;
+  color:var(--muted); margin:34px 0 12px; font-weight:500;
+}
+p{margin:0 0 14px; max-width:68ch}
+code{font-family:var(--mono); font-size:.88em; background:var(--surface-2); padding:1px 5px; border-radius:3px}
+a.ref{color:var(--accent); text-decoration:none; border-bottom:1px solid var(--accent-soft)}
+a.ref:hover{border-bottom-color:var(--accent)}
+/* ---------- thesis card ---------- */
+.thesis{
+  background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--accent);
+  padding:22px 24px; margin:0 0 26px;
+}
+.thesis p{margin:0; font-size:16.5px; line-height:1.55; max-width:62ch}
+.thesis .lead{font-family:var(--serif); font-size:19px; line-height:1.45; margin-bottom:12px; font-weight:600}
+/* ---------- tables ---------- */
+.tw{overflow-x:auto; margin:0 0 20px; -webkit-overflow-scrolling:touch}
+table{border-collapse:collapse; width:100%; font-size:13.5px; font-variant-numeric:tabular-nums}
+th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top}
+th{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--muted); font-weight:500; white-space:nowrap; background:var(--surface-2);
+}
+tbody tr:hover{background:var(--surface)}
+td.num,th.num{text-align:right; font-family:var(--mono); font-size:12.5px}
+td .mono{font-family:var(--mono); font-size:12.5px}
+.pill{
+  display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.05em;
+  padding:2px 7px; border-radius:3px; white-space:nowrap; border:1px solid;
+}
+.p-ok{color:var(--ok); border-color:var(--ok); background:color-mix(in srgb,var(--ok) 8%,transparent)}
+.p-warn{color:var(--warn); border-color:var(--warn); background:color-mix(in srgb,var(--warn) 8%,transparent)}
+.p-bad{color:var(--bad); border-color:var(--bad); background:color-mix(in srgb,var(--bad) 8%,transparent)}
+.p-neutral{color:var(--muted); border-color:var(--line); background:var(--surface-2)}
+/* ---------- code blocks ---------- */
+pre{
+  font-family:var(--mono); font-size:12.5px; line-height:1.6;
+  background:var(--surface); border:1px solid var(--line); padding:16px 18px;
+  overflow-x:auto; margin:0 0 20px; white-space:pre;
+}
+pre .c{color:var(--muted)}
+/* ---------- two-col cards ---------- */
+.cols{display:grid; grid-template-columns:repeat(auto-fit,minmax(258px,1fr)); gap:16px; margin:0 0 20px}
+.card{background:var(--surface); border:1px solid var(--line); padding:16px 18px; min-width:0}
+.card h4{margin:0 0 8px; font-size:14px; font-weight:600}
+.card .tag{font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); display:block; margin-bottom:8px}
+.card p{margin:0; font-size:13.5px; color:var(--muted)}
+/* ---------- overturned list ---------- */
+.over{border:1px solid var(--line); background:var(--surface)}
+.over .row{display:grid; grid-template-columns:minmax(0,1fr) 34px minmax(0,1fr); gap:12px; align-items:center; padding:14px 18px; border-bottom:1px solid var(--line)}
+.over .row:last-child{border-bottom:0}
+.over .was{color:var(--muted); text-decoration:line-through; text-decoration-color:var(--bad); font-size:13.5px}
+.over .now{font-size:13.5px}
+.over .arrow{font-family:var(--mono); color:var(--accent); text-align:center}
+.over .ev{grid-column:1/-1; font-family:var(--mono); font-size:11.5px; color:var(--muted); padding-top:2px}
+/* ---------- diagram ---------- */
+.fig{background:var(--surface); border:1px solid var(--line); padding:18px; margin:0 0 8px; overflow-x:auto}
+.fig svg{min-width:760px; width:100%; height:auto; display:block}
+.cap{font-size:12.5px; color:var(--muted); margin:0 0 24px; max-width:66ch}
+/* ---------- callout ---------- */
+.note{border-left:2px solid var(--warn); background:var(--surface); padding:12px 16px; margin:0 0 20px; font-size:13.5px}
+.note b{color:var(--warn)}
+ul.tight{margin:0 0 20px; padding-left:20px}
+ul.tight li{margin-bottom:7px; max-width:66ch}
+@media (max-width:900px){
+  .grid{grid-template-columns:1fr; gap:0}
+  nav.toc{position:static; border:0; margin:0 0 28px; overflow-x:auto}
+  nav.toc ol{display:flex; border-left:0; border-top:1px solid var(--line); gap:0}
+  nav.toc a{border-left:0; border-top:2px solid transparent; padding:10px 12px; white-space:nowrap}
+  nav.toc a:hover,nav.toc a.on{border-left:0; border-top-color:var(--accent)}
+  .over .row{grid-template-columns:1fr; gap:6px}
+  .over .arrow{display:none}
+}
+</style>
+
+<header class="doc">
+  <p class="eyebrow">kind-ingress-lab · 文档体检 + 结论汇总</p>
+  <h1>摘流方案与实验台账</h1>
+  <p class="dek">把 <code>README.md</code>、<code>REPORT.md</code>、<code>REPORT-l4-probe.md</code> 三份文档（1879 行）里的方案与测试合并成一份。下面只写实测过的结论，并标出哪些结论后来被推翻。</p>
+  <div class="meta">
+    <span>环境 <b>kind 5 节点 · ingress-nginx 1.15.1 · nginx 1.27 外部 LB</b></span>
+    <span>实验 <b>12 组 · 最大 31408 请求</b></span>
+    <span>日期 <b>2026-10-14 → 10-16</b></span>
+  </div>
+</header>
+
+<div class="grid">
+<nav class="toc" aria-label="目录">
+  <ol>
+    <li><a href="#verdict"><span class="n">01</span>一句话结论</a></li>
+    <li><a href="#mech"><span class="n">02</span>失败是怎么产生的</a></li>
+    <li><a href="#plan"><span class="n">03</span>方案：三层职责</a></li>
+    <li><a href="#final"><span class="n">04</span>最终推荐流程</a></li>
+    <li><a href="#tests"><span class="n">05</span>测试台账</a></li>
+    <li><a href="#overturned"><span class="n">06</span>被推翻的结论</a></li>
+    <li><a href="#docs"><span class="n">07</span>报告乱在哪里</a></li>
+    <li><a href="#restruct"><span class="n">08</span>建议的目标结构</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="verdict">
+  <h2><span class="num">01</span>一句话结论</h2>
+  <div class="thesis">
+    <p class="lead">决定「关掉一个 infra 节点会不会掉请求」的，按重要性排序是：节点是怎么关的 → 请求有没有发出去 → 摘流有多快 → 最后才轮到 L4 还是 L7 探测。</p>
+    <p>L4 与 L7 探测在「节点真 down」这一类故障上完全等价（同时刻失败、同耗时摘流、同样不掉）。差别只在盲区：三次握手成功但数据面不工作时，L4 判健康，非幂等请求直接 502。</p>
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>场景</th><th>结果</th><th>代价</th><th>样本</th></tr></thead>
+    <tbody>
+      <tr><td>计划内维护，走推荐流程（§04）</td><td><span class="pill p-ok">0 个非 200</span> <span class="pill p-ok">0 客户端断连</span> <span class="pill p-ok">0 次 reload</span></td><td>无，p99 与基线一致</td><td class="num">5600</td></tr>
+      <tr><td>非计划硬 crash，只靠 LB 探测</td><td><span class="pill p-warn">~10 个 502</span></td><td>8s 内摘除，长尾被限制在几秒</td><td class="num">~5600</td></tr>
+      <tr><td>什么都不做，直接 <code>docker restart</code></td><td><span class="pill p-bad">12 个 502</span></td><td>在飞 19 个里约一半被切</td><td class="num">3447</td></tr>
+      <tr><td>只有 nginx 被动健康检查（<code>max_fails</code>）</td><td><span class="pill p-warn">0 个 5xx</span> <span class="pill p-bad">7.1% 三秒长尾</span></td><td>p95 3006ms，贯穿整个故障期</td><td class="num">450</td></tr>
+    </tbody>
+  </table></div>
+  <p class="sub">「不报错但很慢」是最危险的一种故障形态：状态码全 200，从监控的错误率上完全看不出来。所以观测要盯 p99 和 upstream 重试次数，不是只看状态码。</p>
+</section>
+
+<section id="mech">
+  <h2><span class="num">02</span>失败是怎么产生的</h2>
+  <p class="sub">整份实验只有一条因果链。所有 502、所有长尾，都能归到「失败发生在哪个阶段」上。</p>
+  <div class="fig">
+  <svg viewBox="0 0 860 306" role="img" aria-label="一次 upstream 失败会演变成什么">
+    <defs>
+      <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+      </marker>
+    </defs>
+    <g font-family="var(--mono)" font-size="10" fill="var(--muted)" letter-spacing=".08em">
+      <text x="16" y="14">失败发生在哪</text>
+      <text x="306" y="14">nginx 的判断</text>
+      <text x="576" y="14">客户端最终看到</text>
+    </g>
+    <g stroke="var(--line)" stroke-width="1" fill="var(--surface-2)">
+      <rect x="16" y="26" width="252" height="54" rx="3"/>
+      <rect x="16" y="112" width="252" height="54" rx="3"/>
+      <rect x="16" y="238" width="252" height="44" rx="3"/>
+    </g>
+    <g stroke="var(--accent)" stroke-width="1" fill="var(--accent-soft)">
+      <rect x="306" y="26" width="230" height="54" rx="3"/>
+      <rect x="306" y="104" width="230" height="44" rx="3"/>
+      <rect x="306" y="166" width="230" height="44" rx="3"/>
+      <rect x="306" y="238" width="230" height="44" rx="3"/>
+    </g>
+    <g stroke="var(--line)" stroke-width="1" fill="var(--surface)">
+      <rect x="576" y="26" width="268" height="54" rx="3"/>
+      <rect x="576" y="104" width="268" height="44" rx="3"/>
+      <rect x="576" y="166" width="268" height="44" rx="3"/>
+      <rect x="576" y="238" width="268" height="44" rx="3"/>
+    </g>
+    <g stroke="var(--accent)" stroke-width="1.2" fill="none" marker-end="url(#ah)">
+      <path d="M268,53 L300,53"/>
+      <path d="M268,139 L286,139 L286,126 L300,126"/>
+      <path d="M268,139 L286,139 L286,188 L300,188"/>
+      <path d="M268,260 L300,260"/>
+      <path d="M536,53 L570,53"/>
+      <path d="M536,126 L570,126"/>
+      <path d="M536,188 L570,188"/>
+      <path d="M536,260 L570,260"/>
+    </g>
+    <g font-family="var(--sans)" font-size="12.5" fill="var(--fg)">
+      <text x="28" y="48">① connect 失败</text>
+      <text x="28" y="66" font-size="11.5" fill="var(--muted)">refused（RST）或静默 DROP 超时</text>
+      <text x="28" y="134">② 请求已发出，连接被中途关闭</text>
+      <text x="28" y="152" font-size="11.5" fill="var(--muted)">prematurely closed / 半开连接</text>
+      <text x="28" y="265">③ 池里没有可用成员</text>
+
+      <text x="318" y="48">请求没发出去</text>
+      <text x="318" y="66" font-size="11.5" fill="var(--muted)">⇒ GET 和 POST 都会换一台重发</text>
+      <text x="318" y="121">幂等 ⇒ 重放</text>
+      <text x="318" y="139" font-size="11.5" fill="var(--muted)">GET 允许重试</text>
+      <text x="318" y="183">非幂等 ⇒ 不重试</text>
+      <text x="318" y="201" font-size="11.5" fill="var(--muted)">POST 默认不重试</text>
+      <text x="318" y="265">无处可重试</text>
+
+      <text x="588" y="48" fill="var(--ok)">200，代价 = proxy_connect_timeout</text>
+      <text x="588" y="66" font-size="11.5" fill="var(--muted)">实测 505–516ms（connect=500ms 时）</text>
+      <text x="588" y="121" fill="var(--warn)">200，代价 = 断连检测 + 整个请求重做</text>
+      <text x="588" y="139" font-size="11.5" fill="var(--muted)">实测 +2.2 ~ +2.9s</text>
+      <text x="588" y="183" fill="var(--bad)">502</text>
+      <text x="588" y="201" font-size="11.5" fill="var(--muted)">实测 1.0%（5 并发）/ 12 个（20 并发）</text>
+      <text x="588" y="262" fill="var(--bad)">502，毫秒级快速失败</text>
+      <text x="588" y="277" font-size="11.5" fill="var(--muted)">实测 0.001–0.003s，不伪装成慢</text>
+    </g>
+  </svg>
+  </div>
+  <p class="cap">同一张图解释了三个看起来矛盾的结果：为什么 connect 超时只是慢、为什么硬 crash 会真掉、为什么 drain 一个都不掉（drain 让节点先摘 endpoint，压根不进入 ①②③ 任何一条）。</p>
+  <h3>由此得到的三条推论</h3>
+  <ul class="tight">
+    <li><b>把 <code>proxy_connect_timeout</code> 从 3s 降到 500ms</b>，是把「① 慢」的代价上限直接按比例缩小：p95 从 3006ms 变成 19ms。</li>
+    <li><b>爆炸半径 ≈ 在飞请求数 × 1/N(infra 节点数)</b>。5 并发 / 2 节点 → 2 个；20 并发 → 10 个。想「硬 crash 也不掉」，只能靠幂等键 + 客户端重试，或者把下线变成 drain。</li>
+    <li><b>非幂等请求的 502 不能靠 LB 参数消除</b>，只能靠「不让在飞请求被切」——也就是先摘流、等排空、再关。</li>
+  </ul>
+</section>
+
+<section id="plan">
+  <h2><span class="num">03</span>方案：三层职责</h2>
+  <p class="sub">整套配置只服务一个不变量：<b>上游 LB（实验里的 nginx-external，生产里的 BGP/ECMP）接流量的每一个节点，本节点必须至少有一个 Ready 的 ingress pod。</b>因为 <code>externalTrafficPolicy: Local</code> 下，节点没有本地 endpoint 时 kube-proxy 对该节点的 NodePort 是静默 DROP，不是 RST。</p>
+  <div class="cols">
+    <div class="card">
+      <span class="tag">k8s 层 · 保证每个节点都有 endpoint</span>
+      <h4>调度与容量</h4>
+      <p><code>nodeAffinity</code> 硬约束 + taint 决定「在哪」；<code>replicas = 3×N</code> + <code>topologySpread maxSkew=1 / DoNotSchedule</code> 决定「每个都有且均匀」；<code>PDB minAvailable: 50%</code> 决定「维护时不归零」。宁可 pod Pending，也不要 6/0 分布——那样一半流量进黑洞。</p>
+    </div>
+    <div class="card">
+      <span class="tag">LB 层 · 保证没 endpoint 的节点不接流量</span>
+      <h4>探测与超时</h4>
+      <p>L7 探 <code>:31000/healthz</code>（不带业务 Host 头，否则被 ingress 规则抢走），<code>interval 2s / fail 2 / ok 2</code>；<code>proxy_connect_timeout 500ms</code>、<code>read 10s</code>、<code>next_upstream_tries 2</code>；成员文件原子替换、永不为空。</p>
+    </div>
+    <div class="card">
+      <span class="tag">节点层 · 计划内维护自己摘流</span>
+      <h4>把黑洞变成 RST</h4>
+      <p><code>iptables -t nat -I PREROUTING 1 --dport 31000 -j DNAT --to &lt;nodeIP&gt;:1</code>，让内核自己回 RST。LB 探测从「等 connect 超时」变成「立刻失败」，摘流从 22s 降到 4s，且不动 LB 一行配置。</p>
+    </div>
+  </div>
+  <h3>让节点侧摘流真正生效的那两行</h3>
+  <p>实测反直觉的一条：<b>静态池下节点侧摘流完全不起作用</b>——LB 一直复用已有的上游 keepalive 连接，插了摘流规则后 conntrack 计数 70s 都不降。加上这两行后 12s 归零。已写进 <code>nginx/conf/nginx.conf.tmpl</code>。</p>
+  <pre>upstream k8s_ingress_nodeport {
+    least_conn;
+    include /etc/nginx/upstream/nodeports.conf;  <span class="c"># 原子替换，永不为空</span>
+    keepalive          64;
+    keepalive_time     10s;   <span class="c"># ← 关键：不限制寿命，节点侧摘流就是空操作</span>
+    keepalive_requests 20;
+}
+proxy_connect_timeout       500ms;
+proxy_read_timeout          10s;      <span class="c"># 默认 30s 会让半开连接卡满 30s</span>
+proxy_next_upstream         error timeout http_502 http_503 http_504;
+proxy_next_upstream_tries   2;
+proxy_next_upstream_timeout 5s;       <span class="c"># 必须 &gt; 业务最长正常响应时间，否则反而制造 502</span></pre>
+  <p class="sub">外加一个外挂探测循环，支持三个名单：<code>manual_down.list</code>（人工下线）、<code>manual_hold.list</code>（维护中不摘）、可用节点为 0 时拒绝应用。单一写入者原则：维护脚本只写名单，落盘和 reload 由健康检查做——否则每次维护会多两次 reload。</p>
+</section>
+
+<section id="final">
+  <h2><span class="num">04</span>最终推荐流程</h2>
+  <p class="sub">思路：计划内维护在节点侧摘流，不碰 LB、不 reload；主动摘流只留给非计划故障，并在维护期间用 hold 名单抑制它。唯一要记的命令：</p>
+  <pre>./scripts/graceful-reboot-infra.sh &lt;node&gt; [wait-conn-seconds]
+
+[1/8] cordon
+[2/8] 写 manual_hold（告诉 LB 别摘，省两次 reload）+ 节点侧 nat 摘流(RST)
+[3/8] 等 conntrack 连接数 = 0            <span class="c"># 用 conntrack，不能用 ss：NodePort 是 DNAT，没有本地 socket</span>
+[4/8] drain --grace-period=60           <span class="c"># endpoint 先摘，在飞请求跑完</span>
+[5/8] reboot                            <span class="c"># 不要在 reboot 前删 nat 规则：会留下 kube-proxy DROP 黑洞</span>
+[6/8] 等节点 Ready
+[7/8] 先 uncordon                       <span class="c"># cordon 状态下 pod 永远 Pending</span>
+[8/8] 等 /healthz 连续 2 次通过 → 解除 hold   <span class="c"># 加回要慢</span></pre>
+  <div class="tw"><table>
+    <thead><tr><th>方案</th><th class="num">计划内 502</th><th class="num">客户端断连</th><th class="num">reload</th><th>非计划 crash</th></tr></thead>
+    <tbody>
+      <tr><td>A 直接 <code>docker restart</code></td><td class="num" style="color:var(--bad)">12</td><td class="num">3</td><td class="num">2</td><td>—</td></tr>
+      <tr><td>B cordon → drain → restart</td><td class="num">0</td><td class="num">3</td><td class="num">2</td><td>—</td></tr>
+      <tr><td>C cordon → LB 预摘流 → drain → restart</td><td class="num">0</td><td class="num" style="color:var(--warn)">8</td><td class="num">2</td><td>—</td></tr>
+      <tr><td>D cordon → 节点侧摘流 → 等排空 → drain → reboot</td><td class="num">0</td><td class="num">7</td><td class="num">2</td><td>~10 个，4s 摘除</td></tr>
+      <tr><td>E LB 标 down → 等排空 → 节点侧兜底 → …</td><td class="num">0</td><td class="num">6</td><td class="num">3</td><td>—</td></tr>
+      <tr><td>F 静态池（无主动摘流）+ <code>keepalive_time</code> + 节点侧摘流</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td style="color:var(--bad)">8 个 + 96 次 500ms 长尾，贯穿故障期</td></tr>
+      <tr style="background:var(--accent-soft)"><td><b>G 推荐：F 的配置 + 保留主动摘流，维护期抑制</b></td><td class="num" style="color:var(--ok)"><b>0</b></td><td class="num" style="color:var(--ok)"><b>0</b></td><td class="num" style="color:var(--ok)"><b>0</b></td><td style="color:var(--ok)">~10 个，8s 摘除，长尾短</td></tr>
+    </tbody>
+  </table></div>
+  <p class="sub">所有行都是 CONC=20、POST、后端 1s、约 5600 请求，同一集群同一拓扑，只换流程和 LB 配置。F 在计划内维护上做到了极致，代价全在非计划故障——这就是 G 保留主动摘流的原因。</p>
+  <div class="note"><b>什么时候仍然需要 LB 预摘流（C）：</b>不能 drain（必须硬关机）／摘流信号是静默 DROP 而不是 RST／LB 动态摘除成本高（BGP 撤销慢、reload 慢、探测间隔大）。三条都不沾时，预摘流是净成本：多两次 reload，客户端断连从 3 涨到 8。</div>
+</section>
+
+<section id="tests">
+  <h2><span class="num">05</span>测试台账</h2>
+  <p class="sub">12 组实验，按「证明了什么」排列，不是按做的顺序。开环 = 固定 rps、每请求新建连接；闭环 = N 个常驻 client、持久连接、始终有请求在飞。</p>
+  <div class="tw"><table>
+    <thead><tr><th>#</th><th>场景</th><th>脚本</th><th>关键结果</th><th>判定</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">T1</td><td>调度约束：2/3 infra 副本分布、只跑 infra、业务不污染</td><td class="mono">bootstrap.sh<br>scale-infra.sh</td><td>3/3，扩到 3 infra 自动收敛 3/3/3；无 toleration 的 pod 调度失败</td><td><span class="pill p-ok">通过</span></td></tr>
+      <tr><td class="mono">T2</td><td>流量语义：确认不跨节点</td><td class="mono">ingress-probe.py</td><td>打 infra-1 的 20 个请求全部由该节点 3 个 pod 处理，另一节点 0；ITP=Local 下非 infra 节点访问 ClusterIP 静默超时</td><td><span class="pill p-ok">通过</span></td></tr>
+      <tr><td class="mono">T3</td><td>开环：只有被动 <code>max_fails</code> 时关掉一个节点</td><td class="mono">failover-test.sh</td><td>从不摘流；450 请求全 200，但 7.1% 有 3s 长尾，p95 3006ms，贯穿整个故障期</td><td><span class="pill p-bad">不可接受</span></td></tr>
+      <tr><td class="mono">T4</td><td>开环：加 L7 主动探测，参数三档对比</td><td class="mono">failover-test.sh</td><td>5s/3+connect 3s → p95 39ms；2s/2+connect 500ms → p95 19ms、长尾归零、摘流 ~5s</td><td><span class="pill p-ok">修复 T3</span></td></tr>
+      <tr><td class="mono">T5</td><td>502/503 专项：切换瞬间会不会出 5xx</td><td class="mono">switchover-check.sh</td><td>1602 请求 0 个 5xx；<code>no live upstreams</code> 0 次。两个 infra 全关时 → 502，0.001–0.003s 快速失败</td><td><span class="pill p-ok">通过</span></td></tr>
+      <tr><td class="mono">T6</td><td>L4 vs L7：真的关掉一个节点</td><td class="mono">failover-test.sh<br>HC_MODE=l4</td><td>完全等价：都是 +6s 摘流、0 个非 200；GET 和 POST 都靠重试兜住，代价 505–516ms</td><td><span class="pill p-neutral">等价</span></td></tr>
+      <tr><td class="mono">T7</td><td>L4 盲区：:31000 DNAT 到 accept 即关的 TCP sink</td><td class="mono">l4-blindspot-test.sh</td><td>L4 判健康 → POST 6% 真 502、GET 17.3% 在重试；L7 → 6s 内摘除，0 掉</td><td><span class="pill p-bad">L4 不够</span></td></tr>
+      <tr><td class="mono">T8</td><td>闭环 5 并发 + 3s 慢请求，中途关节点（stop / kill / drain / restart）</td><td class="mono">concurrency-failover-test.sh</td><td>硬 crash：POST 1.0% 502、GET 被重放 +2.2~2.9s；drain：0 掉；restart：3 个 502</td><td><span class="pill p-warn">取决于怎么关</span></td></tr>
+      <tr><td class="mono">T9</td><td>NodePort 与 ingress 的 GAP：每秒同时采样 tcp / healthz / biz / endpoint</td><td class="mono">nodeport-vs-ingress-gap.sh</td><td>下线 GAP ≈5s（NodePort 已黑，API 还说有 endpoint）；上线 GAP ≈5s（已能服务，endpoint 还没出）；数据面黑窗 42s</td><td><span class="pill p-warn">必须靠探测</span></td></tr>
+      <tr><td class="mono">T10</td><td>CONC=20 放大：去掉 LB 预摘流会怎样</td><td class="mono">concurrency-failover-test.sh</td><td>救回在飞请求的是 drain 不是 LB 摘流；B 组（不碰 LB）502 仍为 0，因为 drain 让 NodePort 回 RST</td><td><span class="pill p-warn">推翻预摘流</span></td></tr>
+      <tr><td class="mono">T11</td><td>CONC=100 复测推荐流程</td><td class="mono">maintenance-restart.sh</td><td>28017 请求：0 个 502、0 个 &gt;2s、关节点在飞 88 个全部 200；12 个（0.043%）连接被断，全部「请求未到达后端」⇒ 重试安全</td><td><span class="pill p-ok">结论不依赖并发</span></td></tr>
+      <tr><td class="mono">T12</td><td>2000 条持久连接（100 并发 × 20 连接）下的 reload 代价</td><td class="mono">concurrency-probe.py</td><td>LB 动态 down/up（2 次 reload）→ <b>3808 个请求失败 = 12.1%</b>，100/100 个 client 各约 38 次；节点侧摘流（0 reload）→ 0 失败</td><td><span class="pill p-bad">推翻 T11 的断连数</span></td></tr>
+    </tbody>
+  </table></div>
+  <h3>T12 的补充：客户端重试一次能不能抹平</h3>
+  <div class="tw"><table>
+    <thead><tr><th>配置（2000 连接，同一维护流程）</th><th class="num">失败请求</th><th>代价</th></tr></thead>
+    <tbody>
+      <tr><td>LB 动态 down/up，不重试</td><td class="num" style="color:var(--bad)">3808 = 12.1%</td><td>连续 3 秒、每个 client 约 38 次</td></tr>
+      <tr><td>同上，客户端连接级失败重试一次</td><td class="num" style="color:var(--ok)">0</td><td>+50ms（3825 次重试全部成功，因为 0 个到达过 LB）</td></tr>
+      <tr><td>节点侧摘流，不 reload</td><td class="num" style="color:var(--ok)">0</td><td>无</td></tr>
+    </tbody>
+  </table></div>
+  <p class="sub">这就是「凭什么买商业 LB」的量化回答：开源能做对，但要求你同时掌握节点侧（自己摘流）和客户端（重试）两个前提。商业/动态后端 LB 卖的是把这两个前提拿掉。</p>
+  <h3>代价模型（修正版）</h3>
+  <pre>一次 reload 杀掉的客户端连接数 ≈ 当时的空闲 keepalive 连接数
+                              = 总连接数 × 空闲比例
+                              = 总连接数 × (1 − 1/连接池大小)</pre>
+  <p class="sub">每 client 1 条连接：空闲比例 ≈ think/(slow+think) ≈ 9% ⇒ 只打断几个。每 client 20 条：任意时刻 19/20 空闲 ⇒ 几乎整个连接池被杀。真实（非同步）流量下就是后者。</p>
+</section>
+
+<section id="overturned">
+  <h2><span class="num">06</span>被推翻的结论</h2>
+  <p class="sub">这是三份文档最有价值、也最难读的部分：结论按时间顺序追加，前面的原文不删，后面的推翻写在后面。集中列出来。</p>
+  <div class="over">
+    <div class="row">
+      <div class="was">维护必须先做 LB 预摘流</div><div class="arrow">→</div><div class="now">救回在飞请求的是 k8s 侧的 drain。NodePort + ETP=Local 下 drain 让 NodePort 立刻回 RST，LB 探测 3s 内自己就摘了；预摘流只是多两次 reload。</div>
+      <div class="ev">证据 T10：B 组（完全不碰 LB）502 = 0，客户端断连 3；C 组（预摘流）502 = 0，断连 8。</div>
+    </div>
+    <div class="row">
+      <div class="was">每次 reload 固定打断约 3 个客户端连接</div><div class="arrow">→</div><div class="now">≈ 空闲 keepalive 连接数，与连接池大小成正比。低连接数下的「固定 3 个」是抽样错误。</div>
+      <div class="ev">证据 T12：2000 连接下 3808 个请求失败（12.1%），100/100 个 client 全部命中。</div>
+    </div>
+    <div class="row">
+      <div class="was">节点侧插摘流规则就够了</div><div class="arrow">→</div><div class="now">静态池下完全无效：LB 复用旧连接，conntrack 70s 不降。必须配 <code>keepalive_time</code> / <code>keepalive_requests</code> 限制上游连接寿命。</div>
+      <div class="ev">加两行后 12s 归零，1440 请求全 200、0 次 reload。</div>
+    </div>
+    <div class="row">
+      <div class="was"><code>iptables -j REJECT</code> 放 filter INPUT 就能摘流</div><div class="arrow">→</div><div class="now">空操作。kube-proxy 的 DNAT 在更早的 nat PREROUTING，包到 INPUT 时 dport 已是 podIP:80。可用形式是 nat PREROUTING 抢在 kube-proxy 之前 DNAT 到一个没人监听的端口。</div>
+      <div class="ev">实测插了规则后 <code>wget :31000/healthz</code> 仍 200；REJECT 放 mangle PREROUTING 被内核拒（Invalid argument）。</div>
+    </div>
+    <div class="row">
+      <div class="was">L4 探测和 L7 等价，用哪个都行</div><div class="arrow">→</div><div class="now">只在「节点/端口不可达」上等价。「三次握手成功但数据面不工作」L4 全部误判健康，此时 GET 被重试掩盖、非幂等直接 502。</div>
+      <div class="ev">证据 T6（等价）与 T7（盲区，POST 6% 真掉）。</div>
+    </div>
+    <div class="row">
+      <div class="was">并发越高，故障影响率越高</div><div class="arrow">→</div><div class="now">反了。CONC=20 → 0.11%，CONC=100 → 0.043%：断连数取决于「reload 瞬间有多少空闲客户端连接」，与请求速率无关。</div>
+      <div class="ev">证据 T11；相位分析显示被断的 12 个请求，上一个都恰好在 reload 前 100.9–102.3ms 结束。</div>
+    </div>
+  </div>
+  <h3>顺带修掉的两个真 bug</h3>
+  <ul class="tight">
+    <li><b>候选列表非原子重写</b>：<code>kubectl ... &gt; nodes</code> 会先把文件截断成 0 字节，容器里的健康检查读到空 → 空 upstream → <code>no live upstreams</code> → 恢复阶段 10 个 502。改成 tmp + <code>mv</code>，并加「空列表跳过本轮」保护。</li>
+    <li><b>两个写入者互相覆盖</b>：维护脚本写的 <code>down</code> 会被健康检查下一轮重写，多一次 reload；顺序反了还会把两个节点全标 down，入口直接 502。改成单一写入者：脚本只写名单，健康检查唯一落盘。</li>
+  </ul>
+</section>
+
+<section id="docs">
+  <h2><span class="num">07</span>报告乱在哪里</h2>
+  <p class="sub">内容质量很高，问题全在结构：同一件事在三份文档里各写一遍，且互相不完全一致。</p>
+  <div class="tw"><table>
+    <thead><tr><th>问题</th><th>具体位置</th><th>影响</th></tr></thead>
+    <tbody>
+      <tr><td>同一张表复制三份</td><td>「infra 上的 ingress 为什么这样配」逐条理由表：README §四个关键设计点、REPORT.md §2.1.1、REPORT-l4-probe.md §5，三处措辞略有差异</td><td>改一处忘两处；读者无法判断哪份是权威</td></tr>
+      <tr><td>同一实验写两遍</td><td>L4 vs L7：README「L4 探测 vs L7 探测」、REPORT.md §3.5、REPORT-l4-probe.md §3–§4</td><td>REPORT.md §3.5 是摘要，但摘要里也带完整数据表</td></tr>
+      <tr><td>坑清单两份，编号不同</td><td>README 19 条 vs REPORT.md §4（K8s/kind + nginx/工具 两组）。README 的「坑#9/#10」和 REPORT.md 的「坑#10」指的不是同一条</td><td>正文里所有「见坑#N」的交叉引用都不可靠</td></tr>
+      <tr><td>章节按时间追加，不按逻辑</td><td>REPORT-l4-probe.md 的 §4A→§4L：4B 一节里塞了 5 个子结论；§4L 推翻 §4K，但 §4K 原文照旧保留</td><td>读到 §4K 会形成一个错的结论，且没有前向指引</td></tr>
+      <tr><td>数字前后不一致</td><td>A 组（直接 restart）reload 次数：§4F 写 3，§4J 写 2</td><td>无法判断是不同轮次还是笔误</td></tr>
+      <tr><td>文档与代码默认值不一致</td><td>文档写「默认 <code>interval 2s / fail 2</code>」；<code>nginx/scripts/healthcheck.sh</code> 里是 <code>INTERVAL=5 / FAIL_MAX=3</code>，实际靠 <code>external-nginx.sh</code> 传 2/2 覆盖</td><td>直接读 healthcheck.sh 会以为线上是 5s/3</td></tr>
+      <tr><td>节点 IP 在两份报告里互换</td><td>REPORT.md 用 172.18.0.7 表示 worker2，REPORT-l4-probe.md 用 172.18.0.6，control-plane 也不同</td><td>其实是坑#12（重启后 docker 重新分配 IP）造成的，但没有任何一处说明</td></tr>
+      <tr><td>错别字集中在关键句上</td><td>兑救→兜住、撑销→撤销、拒绍→拒绝、故隙→故障、兼底→兜底、根排不空→根本排不空、第事项→第二、第=轮→第二轮、不这配→不这样配</td><td>共 15 处，其中「拒绍应用」「不能把最后一个可用节点…」都在安全保护的关键描述里</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="restruct">
+  <h2><span class="num">08</span>建议的目标结构</h2>
+  <p class="sub">原则：结论只写一份，实验按「假设 → 方法 → 数据 → 结论 → 是否被后续推翻」的固定模板写，推翻不追加在末尾而是回写到原条目上。</p>
+  <div class="cols">
+    <div class="card">
+      <span class="tag">README.md · 唯一入口</span>
+      <h4>结论 + 命令</h4>
+      <p>不变量、最终推荐流程（§04 那张横评表）、要记的 4 条命令、生产对应关系。不写实验数据，只链接过去。目标 ≤200 行。</p>
+    </div>
+    <div class="card">
+      <span class="tag">REPORT-config.md</span>
+      <h4>环境与配置</h4>
+      <p>拓扑、values 逐条理由（唯一一份）、两个 traffic policy、LB 配置。把 healthcheck.sh 的默认值改成和文档一致，或明确写「默认 5/3，由 external-nginx.sh 覆盖为 2/2」。</p>
+    </div>
+    <div class="card">
+      <span class="tag">REPORT-experiments.md</span>
+      <h4>实验台账</h4>
+      <p>T1–T12 按本页 §05 的顺序重排，每组固定五段。被推翻的结论在原条目上加一行「已被 Tn 推翻」，不新开一节。</p>
+    </div>
+    <div class="card">
+      <span class="tag">PITFALLS.md</span>
+      <h4>坑清单（唯一一份）</h4>
+      <p>按「K8s / kind」「nginx / LB」「节点侧 iptables」「工具与脚本」分组，用稳定 ID（如 <code>P-iptables-01</code>）而不是递增编号，交叉引用才不会随插入错位。</p>
+    </div>
+  </div>
+  <h3>三条立刻能做的修补</h3>
+  <ul class="tight">
+    <li>在 REPORT-l4-probe.md §4K 开头加一行前向指引：「本节『每次 reload 打断约 3 个连接』已被 §4L 推翻，正确模型见 §4L」。</li>
+    <li>统一 A 组的 reload 数字，或标注为不同轮次（附产物目录路径，如 <code>/tmp/failover-*</code>）。</li>
+    <li>在两份报告的「环境」小节加一句：节点 IP 会随 <code>docker stop/start</code> 变化，两份报告里的 IP 不同属正常，对应关系以 <code>kubectl get nodes -o wide</code> 为准。</li>
+  </ul>
+</section>
+
+</main>
+</div>
+
+<script>
+(function(){
+  var links=[].slice.call(document.querySelectorAll('nav.toc a'));
+  var secs=links.map(function(a){return document.querySelector(a.getAttribute('href'))}).filter(Boolean);
+  function mark(){
+    var y=window.scrollY+120, cur=0;
+    secs.forEach(function(s,i){ if(s.offsetTop<=y) cur=i; });
+    links.forEach(function(a,i){ a.classList.toggle('on', i===cur); });
+  }
+  window.addEventListener('scroll',mark,{passive:true}); mark();
+})();
+</script>
