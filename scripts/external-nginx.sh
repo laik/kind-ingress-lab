@@ -17,6 +17,7 @@ HC_INTERVAL=${HC_INTERVAL:-2}   # 探测间隔（s）
 HC_FAIL=${HC_FAIL:-2}          # 连续失败几次摘流
 HC_OK=${HC_OK:-2}              # 连续成功几次加回
 HC_TIMEOUT=${HC_TIMEOUT:-2}    # 单次探测超时（s）；L4 下就是 nc -w 的超时
+HC_ENABLED=${HC_ENABLED:-1}      # 0 = 不起探测循环（纯静态池，见 EVIDENCE.md T12）
 HC_CONNECT_TIMEOUT=${HC_CONNECT_TIMEOUT:-500ms}   # 探测窗口期内打到死节点的代价上限
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -85,7 +86,7 @@ docker run -d --name "$CONTAINER" \
   -v "$UP_DIR:/etc/nginx/upstream" \
   -e HC_MODE="$HC_MODE" -e HC_PORT="$NODEPORT" -e HC_PATH="$HC_PATH" \
   -e HC_INTERVAL="$HC_INTERVAL" -e HC_FAIL="$HC_FAIL" -e HC_OK="$HC_OK" \
-  -e HC_TIMEOUT="$HC_TIMEOUT" \
+  -e HC_TIMEOUT="$HC_TIMEOUT" -e HC_ENABLED="$HC_ENABLED" \
   --restart unless-stopped \
   --entrypoint /bin/sh \
   nginx:1.27-alpine /etc/nginx/scripts/entrypoint.sh >/dev/null

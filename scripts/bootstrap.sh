@@ -15,7 +15,7 @@ kind get clusters 2>/dev/null | grep -qx "$CLUSTER" && {
 }
 kubectl config use-context "$CTX" >/dev/null
 
-echo "### 2/5 打角色标签 + infra taint（不能用 kind 的 labels: 字段，见 README 坑#1）"
+echo "### 2/5 打角色标签 + infra taint（不能用 kind 的 labels: 字段，见 PITFALLS.md P-01）"
 for n in $INFRA_NODES; do
   kubectl label node "$n" node-role.kubernetes.io/infra=true --overwrite >/dev/null
   kubectl taint node "$n" node-role.kubernetes.io/infra=:NoSchedule --overwrite >/dev/null

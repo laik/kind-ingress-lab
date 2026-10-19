@@ -5,7 +5,7 @@
 # HC_MODE=l4         只做 <infra-node>:31000 的 TCP connect（nc -z -w），不看应用层
 #
 # L4 探测只证明“这个 IP 的 NodePort 有人 accept”；
-# 它看不到 TCP 建起来之后 HTTP 层能不能真的出响应（见 README 坑#16）。
+# 它看不到 TCP 建起来之后 HTTP 层能不能真的出响应（见 PITFALLS.md P-23）。
 #
 # L7 探测目标:
 #   - 不带业务 Host 头，命中 ingress-nginx 默认 server 的 `location /healthz { return 200; }`
@@ -36,8 +36,9 @@ STATEDIR=/tmp/hc
 MODE=${HC_MODE:-l7}
 PORT=${HC_PORT:-31000}
 HPATH=${HC_PATH:-/healthz}
-INTERVAL=${HC_INTERVAL:-5}
-FAIL_MAX=${HC_FAIL:-3}
+# 默认值 = 文档推荐值（SWITCHOVER.md §4.3）。external-nginx.sh 会显式传同名环境变量覆盖。
+INTERVAL=${HC_INTERVAL:-2}
+FAIL_MAX=${HC_FAIL:-2}
 OK_MAX=${HC_OK:-2}
 TIMEOUT=${HC_TIMEOUT:-2}
 
@@ -130,7 +131,7 @@ while :; do
       done < "$MDOWN"
     fi
     if [ "$hit" = 1 ] && [ ! -f "$FORCE_ALL" ]; then
-      log "拒绍应用：可用节点为 0 且命中人工下线名单（$MDOWN）；确认要清空入口请 touch $FORCE_ALL"
+      log "拒绝应用：可用节点为 0 且命中人工下线名单（$MDOWN）；确认要清空入口请 touch $FORCE_ALL"
       rm -f "$TMP"; sleep "$INTERVAL"; continue
     fi
   fi

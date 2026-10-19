@@ -5,7 +5,7 @@
 #
 # 每一步都打绝对时间戳（UTC HH:MM:SS），便于和客户端 CSV / nginx access log 对齐做归因。
 #
-# 和 graceful-reboot-infra.sh（§4G/§4J，纯节点侧、不碰 LB）的区别：
+# 和 graceful-reboot-infra.sh（纯节点侧、不碰 LB，SWITCHOVER.md §5 的推荐方案）的区别：
 #   本脚本走 LB：标记 down 之后**新请求立刻不再来**（不用等 LB 探测失败），动作可审计；
 #   代价是 2 次 reload（摘 + 加）——开源 nginx 没有运行时 API，`down` 是静态参数。
 #   同时写 manual_hold.list：让容器内的自动健康检查**不要**再去 REMOVE/ADD，

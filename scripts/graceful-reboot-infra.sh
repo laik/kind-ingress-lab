@@ -3,7 +3,7 @@
 #
 #   graceful-reboot-infra.sh <node> [wait-conn-seconds]
 #
-# 实测最优（§4J）：5585 请求 0 个非200、0 个客户端断连、**0 次 reload**。
+# 实测最优（SWITCHOVER.md §5 方案 G）：5585 请求 0 个非200、0 个客户端断连、**0 次 reload**。
 #
 # 关键设计：
 #   * 节点侧摘流用 `iptables -t nat -I PREROUTING 1 ... -j DNAT --to <nodeIP>:1`。

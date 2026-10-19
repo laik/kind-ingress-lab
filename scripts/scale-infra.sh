@@ -45,7 +45,7 @@ case "${1:-status}" in
     node="${2:?node name required}"
     kubectl --context "$CTX" cordon "$node"
     kubectl --context "$CTX" drain "$node" --ignore-daemonsets --delete-emptydir-data --force --timeout=3m || {
-      echo "  ⚠ drain 可能因 topologySpread(DoNotSchedule) 卡住，见 README 坑#8"; }
+      echo "  ⚠ drain 可能因 topologySpread(DoNotSchedule) 卡住，见 PITFALLS.md P-06"; }
     kubectl --context "$CTX" label node "$node" node-role.kubernetes.io/infra- >/dev/null 2>&1 || true
     kubectl --context "$CTX" taint node "$node" node-role.kubernetes.io/infra:NoSchedule- >/dev/null 2>&1 || true
     N=$(infra_count); R=$((N * PER_NODE))
