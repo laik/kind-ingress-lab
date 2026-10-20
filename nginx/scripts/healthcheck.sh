@@ -8,7 +8,9 @@
 # 它看不到 TCP 建起来之后 HTTP 层能不能真的出响应（见 PITFALLS.md P-23）。
 #
 # L7 探测目标:
-#   - 不带业务 Host 头，命中 ingress-nginx 默认 server 的 `location /healthz { return 200; }`
+#   - 默认不带业务 Host 头，命中 ingress-nginx 默认 server 的 `location /healthz { return 200; }`
+#   - HC_HOST=<canary 域名> 时改探一条真实业务路由（见 manifests/canary-ingress.yaml）：
+#     默认 server 的 /healthz 不证明「业务规则已经 sync 到这台节点」，canary 才证明
 #   - 判 HTTP 状态码 == 200，不判 body（body 是空的）
 # 为什么这个信号是可信的:
 #   ingress-nginx 的 readinessProbe 打的是 :10254/healthz，pod 不健康会被摘出 EndpointSlice；
@@ -36,6 +38,10 @@ STATEDIR=/tmp/hc
 MODE=${HC_MODE:-l7}
 PORT=${HC_PORT:-31000}
 HPATH=${HC_PATH:-/healthz}
+# 可选：给 L7 探测带上业务 Host 头（canary 路由）。
+# 留空 = 命中 ingress 默认 server 的 /healthz（只证明「节点可达 + 有本地 endpoint + 进程活着」）。
+# 设成 canary 域名 = 走真实的 server/location/upstream 全链路，能挡住「规则还没 sync 到这台节点」。
+HOST_HDR=${HC_HOST:-}
 # 默认值 = 文档推荐值（SWITCHOVER.md §4.3）。external-nginx.sh 会显式传同名环境变量覆盖。
 INTERVAL=${HC_INTERVAL:-2}
 FAIL_MAX=${HC_FAIL:-2}
@@ -47,8 +53,14 @@ mkdir -p "$STATEDIR" "$(dirname "$OUT")"
 log() { echo "[hc $(date -u '+%H:%M:%S')] $*"; }
 
 probe_l7() { # ip -> 0 if HTTP 200
-  code=$(wget -S -O- -q -T "$TIMEOUT" "http://$1:$PORT$HPATH" 2>&1 >/dev/null \
-         | awk '/HTTP\//{print $2; exit}')
+  # 注意：busybox ash 没有数组，这里不能拼数组，只能分两个分支
+  if [ -n "$HOST_HDR" ]; then
+    code=$(wget -S -O- -q -T "$TIMEOUT" --header="Host: $HOST_HDR" "http://$1:$PORT$HPATH" 2>&1 >/dev/null \
+           | awk '/HTTP\//{print $2; exit}')
+  else
+    code=$(wget -S -O- -q -T "$TIMEOUT" "http://$1:$PORT$HPATH" 2>&1 >/dev/null \
+           | awk '/HTTP\//{print $2; exit}')
+  fi
   [ "$code" = "200" ]
 }
 

@@ -1,0 +1,30 @@
+# canary 路由：给 LB 的 L7 探测用的「业务真实可用性」信号（见 SWITCHOVER.md §3.4 / 场景 S3）
+#
+# 为什么需要它：
+#   ingress-nginx 默认 server 里的 `location /healthz { return 200; }` 只证明
+#   「节点可达 + 有本地 endpoint + nginx 进程活着」，**不证明业务规则已经 sync 到这台节点**。
+#   这条 canary 走的是真实的 server 匹配 + location 匹配 + upstream 转发全链路，
+#   探测它 = 探测「这台节点现在真的能服务一条业务路由」。
+#
+# 用法（LB 侧）：
+#   HC_MODE=l7 HC_PATH=/healthz HC_HOST=canary.demo.local ./scripts/external-nginx.sh
+#
+# whoami 对任意路径都返回 200，所以这里不需要额外的后端。
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: canary
+  namespace: demo
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: canary.demo.local
+      http:
+        paths:
+          - path: /healthz
+            pathType: Exact
+            backend:
+              service:
+                name: whoami
+                port:
+                  number: 80

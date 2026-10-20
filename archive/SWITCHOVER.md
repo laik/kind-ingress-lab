@@ -1,5 +1,8 @@
 # nginx LB 流量切换方案
 
+> ⚠ **本文已合并进 [`../REPORT.md`](../REPORT.md)（唯一一份报告），此处仅作历史存档，不再更新。**
+> 本轮（2026-10-19）新增的场景 S1–S6、以及两处结论修正（加回不会过早 / 默认 L7 也有盲区）见 `../REPORT.md` §2–§3。
+
 > 适用范围：集群外 nginx（开源版）做 L7 入口，后端是 kind/k8s 里 ingress-nginx 的 NodePort，
 > `externalTrafficPolicy: Local`。生产里对应「BGP/ECMP 宣告 + 节点上的 ingress」。
 >

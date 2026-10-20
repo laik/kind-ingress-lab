@@ -76,6 +76,7 @@ run POST "$HC_MODE-post"
 echo; echo "===== 切换成 L7 探测（探 /healthz），等它把这个「TCP 通、HTTP 死」的节点摘掉 ====="
 HC_MODE=l7 HC_INTERVAL=${HC_INTERVAL:-2} HC_FAIL=${HC_FAIL:-2} HC_OK=${HC_OK:-2} \
   "$ROOT/scripts/external-nginx.sh" >/dev/null 2>&1
+HC_MODE=l7; export HC_MODE   # 否则下面 run() 打印的还是上一轮的探测层
 sleep $(( ${HC_INTERVAL:-2} * ${HC_FAIL:-2} + 4 ))
 docker logs nginx-external --since 1m 2>&1 | grep -E '^\[hc ' | tail -4 | sed 's/^/  /'
 echo "  摘流后 upstream 成员:"; grep 'server ' "$ROOT/nginx/upstream/nodeports.conf" | sed 's/^/    /'

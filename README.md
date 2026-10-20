@@ -5,14 +5,12 @@ topologySpreadConstraints 均匀铺开；Service 用 **NodePort + `externalTraff
 （流量进哪个节点就只在该节点的 nginx 里选，绝不跨节点）。再在 **k8s 外**跑一个 nginx 充当 L7 LB，
 upstream 只包含「本节点有 ingress endpoint」的 infra 节点。
 
-**这套环境是为了回答一个问题：nginx 做 LB 时，流量切换怎么做才不掉请求。**
+**这套环境只回答一个问题：入口 LB 用 HTTP（L7）/ TCP（L4）健康探测时，流量切换怎么做才优雅（不掉请求、不切在飞、不把流量打到不能服务的节点）。**
 
 | 文件 | 内容 |
 |---|---|
-| **[`SWITCHOVER.md`](SWITCHOVER.md)** | **主文档**：完整的流量切换方案 —— L4/L7 探测对比、LB 配置、计划内维护流程、参数推导、生产对应 |
-| [`EVIDENCE.md`](EVIDENCE.md) | 实验台账 T1–T15：假设、方法、数据、结论，以及被后续实验推翻的结论 |
-| [`PITFALLS.md`](PITFALLS.md) | 坑清单（唯一一份，按稳定 ID 引用） |
-| `archive/` | 2026-10-14 / 10-15 两份原始报告（按时间追加的旧版本，保留备查） |
+| **[`REPORT.md`](REPORT.md)** | **唯一一份报告**：场景 × 脚本对照表、L4/L7/canary 探测对比、优雅切换的完整配方、实验台账 T1–T17、坑清单 P-xx、复现命令 |
+| `archive/` | 合并前的原始文档（SWITCHOVER / EVIDENCE / PITFALLS 与 10-14 / 10-15 两份旧报告），只备查，不再更新 |
 
 ---
 
@@ -53,7 +51,7 @@ node-role.kubernetes.io/node=""                 → ingress-lab-worker3, ingress
 ## k8s 侧：保证每个节点都有 endpoint
 
 摘流方案有两半。**k8s 保证「每个节点都有 endpoint」，LB 保证「没 endpoint 的节点不接流量」**
-（后者见 [`SWITCHOVER.md`](SWITCHOVER.md)）。这一半的全部配置只服务一个不变量：
+（后者见 [`REPORT.md`](REPORT.md)）。这一半的全部配置只服务一个不变量：
 
 > **上游 LB（这里是 nginx-external，生产里是 BGP/ECMP）接流量的每一个节点，本节点必须至少有一个 Ready 的 ingress pod。**
 
@@ -146,11 +144,14 @@ cd ~/kind-ingress-lab
 ./scripts/teardown.sh
 ```
 
-跑一遍摘流验证（细节与参数见 [`SWITCHOVER.md` §10](SWITCHOVER.md)）：
+跑一遍摘流验证（场景、脚本与参数见 [`REPORT.md` §2、§9](REPORT.md)）：
 
 ```bash
 ./scripts/switchover-check.sh                       # 502/503 专项：切换会不会出 5xx
 ./scripts/failover-test.sh                          # 开环：摘流与长尾（HC_MODE=l4|l7, METHOD=GET|POST）
+HC_MODE=l7 HC_HOST=canary.demo.local ./scripts/external-nginx.sh   # 把探测换成 canary 业务路由
+./scripts/addback-race-test.sh                      # 场景 S3：加回竞争（L4 / L7 / canary）
+./scripts/business-blindspot-test.sh                # 场景 S4：业务面故障（默认 L7 看不见）
 ./scripts/graceful-reboot-infra.sh ingress-lab-worker2   # 计划内维护（推荐方案，实测 0 掉）
 ```
 
@@ -159,14 +160,13 @@ cd ~/kind-ingress-lab
 ## 文件结构
 
 ```
-├── SWITCHOVER.md            主文档：流量切换方案
-├── EVIDENCE.md              实验台账 T1–T15
-├── PITFALLS.md              坑清单
-├── archive/                 旧版报告（按时间追加）
+├── REPORT.md               唯一一份报告（场景×脚本×数据 + 方案 + 台账 + 坑清单）
+├── archive/                 合并前的旧文档与旧报告（只备查）
 ├── kind-config.yaml         5 节点拓扑 + 31000/31001 宿主机端口映射
 ├── ingress-nginx-values.yaml  Deployment + nodeAffinity + TSC + Local + PDB
 ├── manifests/
 │   ├── demo-app.yaml        demo 业务（钉在 node）+ 2 条 Ingress 规则
+│   ├── canary-ingress.yaml  canary 路由：给 LB 的 L7 探测当目标（场景 S3/S4）
 │   └── slow-backend.yaml    /slow?sleep=Ns 慢后端（闭环并发用，制造在飞请求）
 ├── nginx/                   集群外 LB
 │   ├── conf/nginx.conf.tmpl upstream 用 include，成员动态生成
@@ -186,6 +186,8 @@ cd ~/kind-ingress-lab
     ├── nodeport-vs-ingress-gap.sh   量 NodePort 与 ingress 实际可用之间的 GAP
     ├── graceful-restart-infra.sh    cordon → LB 摘流 → 等排空 → drain → restart
     ├── graceful-reboot-infra.sh     推荐方案：节点侧摘流 + 等排空 + drain + reboot
+    ├── addback-race-test.sh         场景 S3：加回竞争（L4 快配 / L7 默认 / L7 canary）
+    ├── business-blindspot-test.sh   场景 S4：业务面故障（TCP 通、/healthz 200、业务路由死）
     └── lb-mark.sh  maintenance-restart.sh   维护窗口标 upstream down（必须 reload 时）
 ```
 
@@ -203,4 +205,4 @@ cd ~/kind-ingress-lab
 
 真实环境里更干净的做法：把 ingress Service 做成 `type: LoadBalancer` + Antrea BGP 宣告，
 这样 `healthCheckNodePort` 可用，LB 拿到明确的 200/403 而不是靠超时判断。
-完整对照见 [`SWITCHOVER.md` §8](SWITCHOVER.md)。
+完整对照见 [`REPORT.md` §10](REPORT.md)。

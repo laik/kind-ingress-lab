@@ -13,6 +13,7 @@ CONTAINER=nginx-external
 NET=${NET:-kind}
 HC_MODE=${HC_MODE:-l7}
 HC_PATH=${HC_PATH:-/healthz}
+HC_HOST=${HC_HOST:-}   # 非空 = L7 探测带这个业务 Host（canary 路由），见 manifests/canary-ingress.yaml
 HC_INTERVAL=${HC_INTERVAL:-2}   # 探测间隔（s）
 HC_FAIL=${HC_FAIL:-2}          # 连续失败几次摘流
 HC_OK=${HC_OK:-2}              # 连续成功几次加回
@@ -49,9 +50,10 @@ for ip in $CAND_ONELINE; do
   if nc -z -w $HC_TIMEOUT \"\$ip\" $NODEPORT; then echo \"IN \$ip\"; else echo \"OUT \$ip (tcp-timeout)\"; fi
 done")
 else
+  if [ -n "$HC_HOST" ]; then WGET_HDR="--header=Host:$HC_HOST"; else WGET_HDR=""; fi
   SEED=$(docker run --rm --network "$NET" alpine:3.20 sh -c "
 for ip in $CAND_ONELINE; do
-  code=\$(wget -S -O- -q -T $HC_TIMEOUT \"http://\$ip:$NODEPORT$HC_PATH\" 2>&1 >/dev/null | awk '/HTTP\//{print \$2; exit}')
+  code=\$(wget -S -O- -q -T $HC_TIMEOUT $WGET_HDR \"http://\$ip:$NODEPORT$HC_PATH\" 2>&1 >/dev/null | awk '/HTTP\//{print \$2; exit}')
   if [ \"\$code\" = \"200\" ]; then echo \"IN \$ip\"; else echo \"OUT \$ip (\$code)\"; fi
 done")
 fi
@@ -84,7 +86,7 @@ docker run -d --name "$CONTAINER" \
   -v "$CONF_DIR/nginx.conf:/etc/nginx/nginx.conf:ro" \
   -v "$SC_DIR:/etc/nginx/scripts:ro" \
   -v "$UP_DIR:/etc/nginx/upstream" \
-  -e HC_MODE="$HC_MODE" -e HC_PORT="$NODEPORT" -e HC_PATH="$HC_PATH" \
+  -e HC_MODE="$HC_MODE" -e HC_PORT="$NODEPORT" -e HC_PATH="$HC_PATH" -e HC_HOST="$HC_HOST" \
   -e HC_INTERVAL="$HC_INTERVAL" -e HC_FAIL="$HC_FAIL" -e HC_OK="$HC_OK" \
   -e HC_TIMEOUT="$HC_TIMEOUT" -e HC_ENABLED="$HC_ENABLED" \
   --restart unless-stopped \
